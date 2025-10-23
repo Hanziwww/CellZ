@@ -14,10 +14,7 @@ High-performance compressor for single-cell sparse matrices
 
 - **Adaptive hybrid value encoding**: optimized for zero-inflated distributions of single-cell UMI count matrices
 - **Dynamic threshold selection**: parameters are chosen by exact cost-function optimization
-- **Golomb–Rice coding**: efficient for position gaps and large values
-- **Matrix reordering**: rows/columns are reordered by nonzero counts to improve compressibility
 - **Optional block compression**: xz compression on blocks to further reduce size
-- **High performance**: Rust core, several times faster than pure Python
 
 ## Installation
 
