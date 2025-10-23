@@ -1,35 +1,43 @@
-# CELLZ - 高性能单细胞稀疏矩阵压缩器
+# CELLZ
 
-Rust 实现的 CELLZ 压缩器，通过 PyO3 提供 Python 接口。
 
-## 特性
+[![Python 3.10–3.13](https://img.shields.io/badge/Python-3.10%E2%80%933.13-blue?style=flat-square&logo=python)](https://www.python.org/)
+[![Rust](https://img.shields.io/badge/Rust-language-orange?style=flat-square&logo=rust)](https://www.rust-lang.org/)
+[![maturin](https://img.shields.io/badge/maturin-build-blue?style=flat-square)](https://github.com/PyO3/maturin)
+[![Wheel](https://img.shields.io/pypi/wheel/cellz.svg?style=flat-square)](https://pypi.org/project/cellz/)
+[![Implementation](https://img.shields.io/pypi/implementation/cellz.svg?style=flat-square)](https://pypi.org/project/cellz/)
+[![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg?style=flat-square)](https://opensource.org/licenses/BSD-3-Clause)
 
-- **自适应混合值编码**：针对单细胞 UMI counts 矩阵的零膨胀分布优化
-- **动态阈值选择**：基于成本函数自动选择最优编码参数
-- **Golomb-Rice 编码**：对位置间隙和大值进行高效编码
-- **矩阵重排序**：按非零元素数量重排行列，提高压缩率
-- **可选块级压缩**：支持 xz 压缩进一步减小文件大小
-- **高性能**：Rust 实现，比纯 Python 快数倍
+High-performance compressor for single-cell sparse matrices
 
-## 安装
+## Features
 
-### 从源码构建
+- **Adaptive hybrid value encoding**: optimized for zero-inflated distributions of single-cell UMI count matrices
+- **Dynamic threshold selection**: parameters are chosen by exact cost-function optimization
+- **Golomb–Rice coding**: efficient for position gaps and large values
+- **Matrix reordering**: rows/columns are reordered by nonzero counts to improve compressibility
+- **Optional block compression**: xz compression on blocks to further reduce size
+- **High performance**: Rust core, several times faster than pure Python
 
-需要 Rust 工具链和 Python 3.8+：
+## Installation
+
+### Build from source
+
+Requires a Rust toolchain and Python 3.10+:
 
 ```bash
-# 安装 maturin
+# Install maturin
 pip install maturin
 
-# 开发模式安装
+# Install in development mode
 maturin develop --release
 
-# 或构建 wheel 包
+# Or build a wheel
 maturin build --release
 pip install target/wheels/cellz-*.whl
 ```
 
-## 使用
+## Usage
 
 ### Python API
 
@@ -37,70 +45,49 @@ pip install target/wheels/cellz-*.whl
 import cellz
 import scipy.sparse as sp
 
-# 压缩 CSR 矩阵
+# Compress a CSR matrix
 csr = sp.random(10000, 2000, density=0.1, format='csr')
 compressed_bytes = cellz.compress_csr_to_cellz(csr)
 
-# 解压缩
+# Decompress
 decompressed_csr = cellz.decompress_cellz_to_csr(compressed_bytes)
 
-# 压缩 .h5ad 文件
+# Compress a .h5ad file
 cellz.compress_h5ad_to_cellz("data.h5ad", "data.cellz")
 
-# 解压缩 .cellz 文件
+# Decompress a .cellz file
 cellz.decompress_cellz_to_h5ad("data.cellz", "data_restored.h5ad")
 ```
 
-### 高级选项
+### Advanced options
 
 ```python
-# 启用块级 xz 压缩
+# Enable block-level xz compression
 compressed = cellz.compress_csr_to_cellz(
     csr,
-    target_block_nnz=131072,      # 每块目标非零元素数
-    block_xz=True,                 # 启用 xz 压缩
-    block_xz_level=9,              # 压缩级别
-    block_xz_min_bytes=4096,       # 最小字节数阈值
-    block_xz_min_ratio=0.99        # 最小压缩比阈值
+    target_block_nnz=131072,      # target nonzeros per block
+    block_xz=True,                 # enable xz compression
+    block_xz_level=9,              # compression level
+    block_xz_min_bytes=4096,       # minimum byte threshold
+    block_xz_min_ratio=0.99        # minimum compression ratio threshold
 )
 ```
 
-## 算法说明
+## Algorithm
 
-CELLZ 使用多层编码策略：
+CELLZ uses a multi-stage coding strategy:
 
-1. **矩阵重排序**：按行列非零元素数降序排列，提高局部性
-2. **列分块**：将矩阵分割为固定非零元素数的块
-3. **位置编码**：使用 Golomb-Rice 编码压缩行索引间隙
-4. **值编码**：自适应混合编码
-   - 值为 1：1 bit
-   - 小值（2 到阈值-1）：2 bit + 定长/截断二进制
-   - 大值（≥阈值）：2 bit + Golomb-Rice
-5. **可选块压缩**：xz/lzma 压缩位流
+1. **Matrix reordering**: sort rows/cols by nonzero counts (descending) to improve locality
+2. **Column blocking**: partition the matrix into blocks with a fixed number of nonzeros
+3. **Position coding**: use Golomb–Rice coding for row-index gaps within a column block
+4. **Value coding**: adaptive hybrid encoding
+   - value = 1: 1 bit
+   - small values (2 to threshold−1): 2 bits + fixed/truncated binary
+   - large values (≥ threshold): 2 bits + Golomb–Rice
+5. **Optional block compression**: xz/lzma on the bitstream
 
-所有参数（阈值、k 参数、位数）均通过精确成本函数自动优化。
+All parameters (threshold, k, bit-widths) are selected by exact cost-function optimization.
 
-## 性能
+## License
 
-相比纯 Python 实现：
-- 压缩速度：约 3-5 倍提升
-- 解压速度：约 4-6 倍提升
-- 压缩率：相同（算法完全一致）
-
-## 开发
-
-运行测试：
-
-```bash
-# Rust 单元测试
-cargo test
-
-# Python 集成测试
-maturin develop --release
-pytest tests/
-```
-
-## 许可证
-
-MIT License
-
+BSD-3-Clause license
